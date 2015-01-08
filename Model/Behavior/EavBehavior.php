@@ -131,8 +131,8 @@ class EavBehavior extends ModelBehavior {
         ), (array) $config);
         $this->settings[$model->name]['type'] = strtolower($this->settings[$model->name]['type']);
         $type = $config['type'];
-        $this->Attribute = new $this->attributeModel;
-        debug($this->Attribute);
+        $this->Attribute = ClassRegistry::init($this->attributeModel);//new ;
+        //debug($this->Attribute);
         if ($type == 'entity') {
             $this->entityModel = $model;
             $hasAndBelongsToMany = array();
@@ -174,6 +174,7 @@ class EavBehavior extends ModelBehavior {
            if ($this->virtualFieldType == 'cake') {
                 //Set model virtual fields.
                 $model->virtualFields = Hash::mergeDiff($model->virtualFields, $this->_getVirtualFieldSql($model));
+                //print_r($model->virtualFields);
             }
         }
     }
@@ -211,9 +212,27 @@ class EavBehavior extends ModelBehavior {
      */
     private function _getVirtualFieldsByModel(Model $model) {
         //$this->Attribute = ClassRegistry::init('Eav.'.$this->attributeModel);
+
         if (!empty($model)) {
+            $this->Attribute->bindModel(
+              array('belongsTo' => array(
+                      'EntityType' => array(
+                        'className' => 'EntityType'
+                    )
+                  )
+              )
+            );
+            $this->Attribute->bindModel(
+              array('belongsTo' => array(
+                      'DataType' => array(
+                        'className' => 'DataType'
+                    )
+                  )
+              )
+            );
+
             $fields = $this->Attribute->find('all', array(
-                    'conditions' => array('EntityType.name' => array($model->alias,$model->name)),
+                    'conditions' => array('EntityType.name' => array($model::$registerName,$model->name)),
                     'contain' => array('DataType','EntityType')
             ));
             return $fields;
@@ -227,27 +246,28 @@ class EavBehavior extends ModelBehavior {
      * @param $model
      */
     private function _getVirtualFieldSql(Model $model, $entityId = null) {
+
         if ($model != null) {
             $fields = $this->_getVirtualFieldsByModel($model);
-
             if (! empty($fields)) {
                 $fieldData = array();
                 foreach ($fields as $field) {
                     $valueModel = $this->valueModels[$field['DataType']['name']];
+                    
                     $this->$valueModel = ClassRegistry::init($valueModel);
                     $dbo = $this->$valueModel->getDataSource();
                     $table = 'attributes_' . $field['DataType']['name'] . '_values';
                     $table = $dbo->fullTableName($this->$valueModel);
                     if ($entityId) {
-                        $conditionsSubQuery['`' . $valueModel . '`.`entity_id`'] = $entityId;
+                        $conditionsSubQuery['"' . $valueModel . '."entity_id"'] = $entityId;
                     } else {
-                        $conditionsSubQuery[] = '`' . $valueModel . '`.`entity_id` = `' . $model->alias . '`.`id`';
+                        $conditionsSubQuery[] = '"' . $valueModel . '"."entity_id" = ' . $model->alias . '."id"';
                     }
 
-                    $conditionsSubQuery['`' . $valueModel . '`.`attribute_id`'] = $field['Attribute']['id'];
+                    $conditionsSubQuery['' . $valueModel . '.attribute_id'] = $field['Attribute']['id'];
                     $subQuery = $dbo->buildStatement(array(
                             'fields' => array(
-                                    $valueModel . '.value'
+                                    '"'.$valueModel . '"."value"'
                             ),
                             'table' => $table,
                             'alias' => $valueModel,
@@ -291,9 +311,9 @@ class EavBehavior extends ModelBehavior {
         $dbo = $this->$valueModel->getDataSource();
         $table = 'attributes_' . $attribute['DataType']['name'] . '_values';
         $table = $dbo->fullTableName($this->$valueModel);
-        $conditionsSubQuery[] = '`' . $valueModel . '`.`entity_id` = `' . $model->alias . '`.`id`';
+        $conditionsSubQuery[] = '' . $valueModel . '.entity_id = ' . $model->alias . '.id';
 
-        $conditionsSubQuery['`' . $valueModel . '`.`attribute_id`'] = $attribute['Attribute']['id'];
+        $conditionsSubQuery['' . $valueModel . '.attribute_id'] = $attribute['Attribute']['id'];
         foreach ($condition as $key => $value) {
             $condition['value'] = $value;
             $condition = Set::remove($condition, $key);
@@ -464,12 +484,12 @@ class EavBehavior extends ModelBehavior {
                         'AttributesStringValue.id' => $attributeValuesUpdateList
                 );
             }
-            $replace = 'REPLACE(`AttributesTextValue`.`value`,"' . $searchText . '","' . $replaceText . '")';
+            $replace = 'REPLACE(AttributesTextValue.value,"' . $searchText . '","' . $replaceText . '")';
             $AttributesTextValue->updateAll(array(
                     'AttributesTextValue.value' => $replace
             ), $conditionsText);
             $rows += $AttributesTextValue->getAffectedRows();
-            $replace = 'REPLACE(`AttributesStringValue`.`value`,"' . $searchText . '","' . $replaceText . '")';
+            $replace = 'REPLACE(AttributesStringValue.value,"' . $searchText . '","' . $replaceText . '")';
             $AttributesStringValue->updateAll(array(
                     'AttributesStringValue.value' => $replace
             ), $conditionsString);
@@ -586,7 +606,7 @@ class EavBehavior extends ModelBehavior {
 
         $value = $db->value($value, $type);
         if ($bound) {
-            $keyArray = explode('.', str_replace('`', '', $key));
+            $keyArray = explode('.', str_replace('', '', $key));
             if (isset($keyArray[1])) {
                 return $keyArray[1];
             } else {
@@ -628,7 +648,7 @@ class EavBehavior extends ModelBehavior {
                     break;
             }
         }
-        $keyArray = explode('.', str_replace('`', '', $key));
+        $keyArray = explode('.', str_replace('', '', $key));
         if (isset($keyArray[1])) {
             return $keyArray[1];
         } else {
@@ -654,7 +674,7 @@ class EavBehavior extends ModelBehavior {
         if ($this->settings[$Model->name]['type'] == 'entity') {
             if ($this->virtualFieldType == 'eav' && !empty($query['conditions'])) {
                 foreach ($query['conditions'] as $key => $value) {
-                    $field = $this->_extractField(&$Model, $key, $value);
+                    $field = $this->_extractField($Model, $key, $value);
                     $attribute = ClassRegistry::init($this->attributeModel)->find('first', array(
                             'conditions' => array(
                                     'name' => $field
@@ -732,6 +752,8 @@ class EavBehavior extends ModelBehavior {
             }
 
         }
+
+
         return $results;
     }
 
@@ -762,7 +784,26 @@ class EavBehavior extends ModelBehavior {
         foreach ($data[$model->name] as $field => $value) {
         //debug($field);
             if ($model->isVirtualField($field) || $this->getAttributeIdByName($field)) {
-                $attribute = ClassRegistry::init($this->attributeModel)->findByName($field);
+
+                $attribute_class = ClassRegistry::init($this->attributeModel);
+                $attribute_class->bindModel(
+                array('belongsTo' => array(
+                          'EntityType' => array(
+                            'className' => 'EntityType'
+                        )
+                      )
+                  )
+                );
+                $attribute_class->bindModel(
+                  array('belongsTo' => array(
+                          'DataType' => array(
+                            'className' => 'DataType'
+                        )
+                      )
+                  )
+                );
+                $attribute = $attribute_class->findByName($field);
+
                 $dataModel = $this->valueModels[$attribute['DataType']['name']];
                 $model->$dataModel->create();
                 $data = array(
