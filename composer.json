@@ -1,0 +1,7 @@
+{
+	"name": "dannychichainsaw/cakephp-plugin-eav",
+	"type": "cakephp-plugin",
+	"extra": {
+		"installer-name": "Eav"
+	}
+}
