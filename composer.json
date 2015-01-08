@@ -3,5 +3,8 @@
 	"type": "cakephp-plugin",
 	"extra": {
 		"installer-name": "Eav"
-	}
+	},    
+	"require": {
+        "composer/installers": "~1.0"
+    }
 }
