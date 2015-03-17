@@ -781,6 +781,7 @@ class EavBehavior extends ModelBehavior {
         $data = $model->data;
         //debug($data);
         $entityId = $data[$model->name]['id'];
+        $entity_type_id = $model->data[$model->name]['entity_id'];
         foreach ($data[$model->name] as $field => $value) {
         //debug($field);
             if ($model->isVirtualField($field) || $this->getAttributeIdByName($field)) {
@@ -802,8 +803,8 @@ class EavBehavior extends ModelBehavior {
                       )
                   )
                 );
-                $attribute = $attribute_class->findByName($field);
 
+                $attribute = $attribute_class->findByNameAndEntityTypeId($field, $entity_type_id);
                 $dataModel = $this->valueModels[$attribute['DataType']['name']];
                 $model->$dataModel->create();
                 $data = array(
