@@ -232,7 +232,7 @@ class EavBehavior extends ModelBehavior {
             );
 
             $fields = $this->Attribute->find('all', array(
-                    'conditions' => array('EntityType.name' => array($model::$registerName,$model->name)),
+                    'conditions' => array('EntityType.id' => array($model::$registerId)),
                     'contain' => array('DataType','EntityType')
             ));
             return $fields;
